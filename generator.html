@@ -117,6 +117,8 @@ button {
   <button onclick="generate()">Generate CPR</button>
 
   <div id="result" class="result" style="display:none;"></div>
+  <ul id="list" style="margin-top:14px;padding-left:18px;display:none;"></ul>
+
 
   <div class="back">
     <a href="index.html">← Back to validator</a>
@@ -129,7 +131,12 @@ const WEIGHTS = [4,3,2,7,6,5,4,3,2,1];
 function generate() {
   const dob = document.getElementById("dob").value;
   const gender = document.getElementById("gender").value;
-  const out = document.getElementById("result");
+  const result = document.getElementById("result");
+  const list = document.getElementById("list");
+
+  result.style.display = "none";
+  list.style.display = "none";
+  list.innerHTML = "";
 
   if (!dob) return;
 
@@ -138,12 +145,15 @@ function generate() {
   const mm = String(date.getMonth()+1).padStart(2,"0");
   const yy = String(date.getFullYear()).slice(-2);
 
-  // Try serials until checksum passes
-  for (let serial = 0; serial <= 9999; serial++) {
-    let s = String(serial).padStart(4,"0");
+  const validCPRs = [];
 
-    // Gender rule: last digit
+  for (let serial = 0; serial <= 9999; serial++) {
+    if (validCPRs.length >= 10) break;
+
+    const s = String(serial).padStart(4,"0");
     const lastDigit = Number(s[3]);
+
+    // Gender rule
     if (gender === "male" && lastDigit % 2 === 0) continue;
     if (gender === "female" && lastDigit % 2 !== 0) continue;
 
@@ -155,14 +165,28 @@ function generate() {
     }
 
     if (sum % 11 === 0) {
-      out.style.display = "block";
-      out.textContent = cpr;
-      return;
+      validCPRs.push(cpr);
     }
   }
 
-  out.style.display = "block";
-  out.textContent = "No valid CPR could be generated for this date";
+  if (validCPRs.length === 0) {
+    result.style.display = "block";
+    result.textContent = "No valid CPR numbers could be generated for this input";
+    return;
+  }
+
+  result.style.display = "block";
+  result.textContent = `Generated ${validCPRs.length} valid CPR numbers`;
+
+  list.style.display = "block";
+  for (const cpr of validCPRs) {
+    const li = document.createElement("li");
+    li.textContent = cpr;
+    li.style.fontFamily = "monospace";
+    li.style.color = "#e5e7eb";
+    li.style.marginBottom = "6px";
+    list.appendChild(li);
+  }
 }
 </script>
 

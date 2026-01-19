@@ -11,7 +11,6 @@
 <style>
 :root {
   --bg: #020617;
-  --panel: #020617;
   --border: #1e293b;
   --text: #e5e7eb;
   --muted: #64748b;
@@ -21,7 +20,7 @@
   --bad: #ef4444;
 }
 
-* { box-sizing: border-box }
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -63,9 +62,7 @@ input {
   outline: none;
 }
 
-input::placeholder {
-  color: var(--muted);
-}
+input::placeholder { color: var(--muted); }
 
 input:focus {
   border-color: var(--accent);
@@ -95,14 +92,41 @@ input:focus {
   border-color: rgba(239,68,68,.4);
 }
 
-.idle {
+.idle { color: var(--muted); }
+
+.explainer {
+  display: none;
+  margin-top: 14px;
+}
+
+.explainer pre {
+  margin: 0;
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  overflow: auto;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.linkrow {
+  margin-top: 18px;
+  font-size: 13px;
   color: var(--muted);
 }
+.linkrow a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.linkrow a:hover { text-decoration: underline; }
 </style>
 </head>
 
 <body>
-
 <div class="card">
   <h1>CPR / CVR Validator</h1>
 
@@ -113,51 +137,54 @@ input:focus {
     autocomplete="off"
   >
 
-  <div id="result" class="result idle">
-    Waiting for input…
+  <div id="result" class="result idle">Waiting for input…</div>
+
+  <div id="explanation" class="explainer">
+    <pre id="calc"></pre>
   </div>
 
-  <div style="margin-top:18px;font-size:13px;color:#64748b;">
+  <div class="linkrow">
     Need a test number?
-    <a href="generator.html" style="color:#6366f1;text-decoration:none;font-weight:600;">
-      Generate a valid CPR →
-    </a>
+    <a href="generator.html">Generate a valid CPR →</a>
   </div>
 </div>
-
 
 <script>
 const WEIGHTS = [4,3,2,7,6,5,4,3,2,1];
 const input = document.getElementById("input");
 const result = document.getElementById("result");
+const explanation = document.getElementById("explanation");
+const calc = document.getElementById("calc");
 
 input.addEventListener("input", validate);
 
 function validate() {
   const value = input.value.replace(/\D/g, "");
 
-  if (!value) {
-    return idle("Waiting for input…");
-  }
+  // reset explainer
+  explanation.style.display = "none";
+  calc.textContent = "";
 
-  // Length
+  if (!value) return idle("Waiting for input…");
+
+  // 1) Length
   if (value.length !== 8 && value.length !== 10) {
     return fail("Wrong Length: CPR must be 10 digits, CVR must be 8 digits");
   }
 
-  // CVR
+  // CVR: length-only per spec
   if (value.length === 8) {
     return success("Valid CVR");
   }
 
-  // Format
+  // 2) Format (CPR only)
   if (!/^[0-3][0-9][0-1][0-9][0-9]{6}$/.test(value)) {
     return fail(
       "Invalid Format: CPR must match pattern [0-3][0-9][0-1][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"
     );
   }
 
-  // Date
+  // 3) Date (DDMMYY)
   const dd = +value.slice(0,2);
   const mm = +value.slice(2,4);
   const yy = +value.slice(4,6);
@@ -172,17 +199,34 @@ function validate() {
     return fail("Invalid Date: The date DDMMYY is not a valid calendar date");
   }
 
-  // Modulus 11
-  let sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += Number(value[i]) * WEIGHTS[i];
-  }
+  // 4) Modulus 11 checksum + explanation
+  const digits = [...value].map(ch => Number(ch));
+  const products = digits.map((d, i) => d * WEIGHTS[i]);
+  const sum = products.reduce((a, b) => a + b, 0);
+  const remainder = sum % 11;
 
-  if (sum % 11 !== 0) {
+  if (remainder !== 0) {
+    explanation.style.display = "block";
+
+    // Build a readable breakdown (aligned columns)
+    const header =
+      "Checksum (modulus 11) breakdown\n" +
+      "--------------------------------\n" +
+      `CPR:     ${value}\n` +
+      `Digits:  ${digits.join(" ")}\n` +
+      `Weights: ${WEIGHTS.join(" ")}\n` +
+      `Prod:    ${products.join(" ")}\n\n` +
+      `Sum = ${sum}\n` +
+      `Sum ÷ 11 = ${(sum / 11).toFixed(6)}…\n` +
+      `Remainder = ${remainder}\n\n` +
+      "❌ Failed: remainder must be 0 (sum must be evenly divisible by 11)\n";
+
+    calc.textContent = header;
+
     return fail("Failed Checksum: The modulus 11 validation failed");
   }
 
-  success("Valid CPR");
+  return success("Valid CPR");
 }
 
 function success(msg) {
@@ -200,6 +244,5 @@ function idle(msg) {
   result.textContent = msg;
 }
 </script>
-
 </body>
 </html>
